@@ -66,9 +66,11 @@ final private class PovToEntry(
               boards = boards,
               movetimes = movetimes,
               advices = an.?? {
-                _.advices.view.map { a =>
-                  a.info.ply -> a
-                }.toMap
+                _.advices.view
+                  .map { a =>
+                    a.info.ply -> a
+                  }
+                  .toMap
               }
             )
           }
