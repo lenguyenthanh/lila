@@ -67,9 +67,9 @@ case class TestCase(sans: List[SanStr], pgn: PgnStr, fishnetInput: String, expec
 
   def test =
     val analysis = parseAnalysis(fishnetInput)
-    val p1       = annotator.addEvals(dumped, analysis)
+    val p1       = Annotator.addEvals(dumped, analysis)
     val p2       = annotator(p1, makeGame(gameWithMoves._1), analysis.some).copy(tags = Tags.empty)
-    val output   = annotator.toPgnString(p2)
+    val output   = Annotator.toPgnString(p2)
     (output, expected)
 
   def parseAnalysis(str: String): lila.analyse.Analysis =

@@ -6,7 +6,7 @@ import chess.format.Fen
 import chess.format.pgn.{ PgnStr, Tag }
 import play.api.libs.json.*
 
-import lila.analyse.{ AccuracyPercent, Analysis, JsonView as analysisJson }
+import lila.analyse.{ AccuracyPercent, Analysis, Annotator, JsonView as analysisJson }
 import lila.common.Json.given
 
 import lila.common.HTTPRequest
@@ -30,7 +30,6 @@ final class GameApiV2(
     playerRepo: lila.tournament.PlayerRepo,
     swissApi: lila.swiss.SwissApi,
     analysisRepo: lila.analyse.AnalysisRepo,
-    annotator: lila.analyse.Annotator,
     getLightUser: LightUser.Getter,
     realPlayerApi: RealPlayerApi,
     gameProxy: GameProxyRepo,
@@ -59,7 +58,7 @@ final class GameApiV2(
                   analysis,
                   config.flags,
                   realPlayers = realPlayers
-                ).dmap(annotator.toPgnString)
+                ).dmap(Annotator.toPgnString)
               )
         yield formatted
 
@@ -280,7 +279,7 @@ final class GameApiV2(
       config.flags.pgnInJson.soFu(
         pgnDump
           .apply(g, initialFen, analysisOption, config.flags, realPlayers = realPlayers)
-          .dmap(annotator.toPgnString)
+          .dmap(Annotator.toPgnString)
       )
     accuracy = analysisOption
       .ifTrue(flags.accuracy)

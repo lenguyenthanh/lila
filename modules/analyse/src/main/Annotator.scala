@@ -21,22 +21,6 @@ final class Annotator(netDomain: lila.core.config.NetDomain):
       )
     }
 
-  def addEvals(p: Pgn, analysis: Analysis): Pgn =
-    analysis.infos.foldLeft(p) { (pgn, info) =>
-      pgn
-        .updatePly(
-          info.ply,
-          move => move.copy(comments = info.pgnComment.toList ::: move.comments)
-        )
-        .getOrElse(pgn)
-    }
-
-  // merge analysis & eval comments
-  // 1. e4 { [%eval 0.17] } { [%clk 0:00:30] }
-  // 1. e4 { [%eval 0.17] [%clk 0:00:30] }
-  def toPgnString(pgn: Pgn): PgnStr = PgnStr:
-    s"${pgn.render}\n\n\n".replaceIf("] } { [", "] [")
-
   private def annotateStatus(winner: Option[Color], status: Status)(p: Pgn) =
     lila.game.StatusText(status, winner, chess.variant.Standard) match
       case ""   => p
@@ -80,3 +64,21 @@ final class Annotator(netDomain: lila.core.config.NetDomain):
     Tree
       .buildWithIndex(sans, (san, index) => Move(Ply(advice.ply.value + index), san))
       .map(_.toVariation)
+
+object Annotator:
+
+  def addEvals(p: Pgn, analysis: Analysis): Pgn =
+    analysis.infos.foldLeft(p) { (pgn, info) =>
+      pgn
+        .updatePly(
+          info.ply,
+          move => move.copy(comments = info.pgnComment.toList ::: move.comments)
+        )
+        .getOrElse(pgn)
+    }
+
+  // merge analysis & eval comments
+  // 1. e4 { [%eval 0.17] } { [%clk 0:00:30] }
+  // 1. e4 { [%eval 0.17] [%clk 0:00:30] }
+  def toPgnString(pgn: Pgn): PgnStr = PgnStr:
+    s"${pgn.render}\n\n\n".replaceIf("] } { [", "] [")

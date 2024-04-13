@@ -27,7 +27,6 @@ final class Env(
     socketReq: lila.core.socket.SocketRequester,
     chatApi: lila.core.chat.ChatApi,
     analyser: lila.analyse.Analyser,
-    annotator: lila.analyse.Annotator,
     mongo: lila.db.Env,
     net: lila.core.config.NetConfig,
     cacheApi: lila.memo.CacheApi

@@ -40,7 +40,7 @@ final class PgnDump(
             .map(_.fold(pgn)(pgn.withEvent))
         else fuccess(pgn)
       .map: pgn =>
-        val evaled = analysis.ifTrue(flags.evals).fold(pgn)(annotator.addEvals(pgn, _))
+        val evaled = analysis.ifTrue(flags.evals).fold(pgn)(Annotator.addEvals(pgn, _))
         if flags.literate then annotator(evaled, game, analysis)
         else evaled
       .map: pgn =>
@@ -58,4 +58,4 @@ final class PgnDump(
         teams: Option[GameTeams],
         realPlayers: Option[RealPlayers]
     ) =>
-      apply(game, initialFen, analysis, flags, teams, realPlayers).dmap(annotator.toPgnString).dmap(_.value)
+      apply(game, initialFen, analysis, flags, teams, realPlayers).dmap(Annotator.toPgnString).dmap(_.value)

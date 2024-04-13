@@ -7,11 +7,11 @@ import chess.format.{ pgn as chessPgn }
 import lila.common.String.slugify
 import lila.tree.{ Analysis, Root, Metas, NewBranch, NewTree, NewRoot }
 import lila.tree.Node.{ Shape, Shapes }
+import lila.analyse.Annotator
 
 final class PgnDump(
     chapterRepo: ChapterRepo,
     analyser: lila.analyse.Analyser,
-    annotator: lila.analyse.Annotator,
     lightUserApi: lila.core.user.LightUserApi,
     net: lila.core.config.NetConfig
 )(using Executor):
@@ -93,7 +93,7 @@ final class PgnDump(
   def ofChapter(study: Study, flags: WithFlags)(chapter: Chapter, analysis: Option[Analysis]): PgnStr =
     val tags = makeTags(study, chapter)(using flags)
     val pgn  = rootToPgn(chapter.root, tags)(using flags)
-    annotator.toPgnString(analysis.ifTrue(flags.comments).fold(pgn)(annotator.addEvals(pgn, _)))
+    Annotator.toPgnString(analysis.ifTrue(flags.comments).fold(pgn)(Annotator.addEvals(pgn, _)))
 
 object PgnDump:
 
