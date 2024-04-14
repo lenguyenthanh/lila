@@ -7,6 +7,8 @@ import chess.{ Color, Ply, Status, Tree, Variation }
 import lila.tree.{ Advice, Analysis }
 import lila.game.{ Game, GameDrawOffers }
 
+// Annotate a PGN with game analysis data
+// We can remove this class all together and just use the Annotator object with add NetDomain as tag
 final class Annotator(netDomain: lila.core.config.NetDomain):
 
   def apply(p: Pgn, game: Game, analysis: Option[Analysis]): Pgn =
@@ -16,10 +18,10 @@ final class Annotator(netDomain: lila.core.config.NetDomain):
           annotateDrawOffers(p, game.drawOffers),
           analysis.so(_.advices)
         )
-      }.copy(
-        tags = p.tags + Tag(_.Annotator, netDomain)
-      )
-    }
+      }
+    }.copy(
+      tags = p.tags + Tag(_.Annotator, netDomain)
+    )
 
   private def annotateStatus(winner: Option[Color], status: Status)(p: Pgn) =
     lila.game.StatusText(status, winner, chess.variant.Standard) match
