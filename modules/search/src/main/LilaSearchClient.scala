@@ -8,7 +8,7 @@ class TooManyResultsError(count: Long) extends NoStackTrace
 
 class LilaSearchClient(client: SearchClient)(using Executor) extends SearchClient:
 
-  private val MaxResults = 100_000L
+  private val MaxResults = 1_000_000L
   override def count(query: Query): Future[CountOutput] =
     monitor("count", query.index):
       client
