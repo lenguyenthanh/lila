@@ -2,14 +2,21 @@ package lila.search
 
 import lila.search.client.{ SearchClient, SearchError }
 import lila.search.spec.*
+import scala.util.control.NoStackTrace
+
+class TooManyResultsError(count: Long) extends NoStackTrace
 
 class LilaSearchClient(client: SearchClient)(using Executor) extends SearchClient:
 
+  private val MaxResults = 100_000L
   override def count(query: Query): Future[CountOutput] =
     monitor("count", query.index):
       client
         .count(query)
-        .handleError:
+        .flatMap: res =>
+          if res.count > MaxResults then fufail(TooManyResultsError(res.count))
+          else fuccess(res)
+        .recover:
           case e: SearchError =>
             logger.info(s"Count error: query={$query}", e)
             CountOutput(0)
@@ -18,7 +25,7 @@ class LilaSearchClient(client: SearchClient)(using Executor) extends SearchClien
     monitor("search", query.index):
       client
         .search(query, from, size)
-        .handleError:
+        .recover:
           case e: SearchError =>
             logger.info(s"Search error: query={$query}, from={$from}, size={$size}", e)
             SearchOutput(Nil)

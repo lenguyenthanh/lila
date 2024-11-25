@@ -47,6 +47,9 @@ final class Search(env: Env) extends LilaController(env):
                           pager.fold(BadRequest(jsonError("Could not process search query")).toFuccess):
                             pager => env.game.userGameApi.jsPaginator(pager).dmap(Ok(_))
                         )
-                      .recoverWith: _ =>
-                        serverError("Sorry, we can't process that query at the moment")
+                      .recoverWith:
+                        case e: lila.search.TooManyResultsError =>
+                          serverError("Sorry, your query has too many results. Try to be more specific")
+                        case x =>
+                          serverError("Sorry, we can't process that query at the moment")
                 )

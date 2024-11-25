@@ -17,10 +17,10 @@ final class GameSearchApi(
     client
       .search(query, from, size)
       .flatMap: res =>
-        gameRepo.gamesFromSecondary(res.hitIds.map(id => GameId.apply(id.value)))
+        gameRepo.gamesFromSecondary(res.hitIds.map(id => GameId(id.value)))
 
   def count(query: Query.Game) =
-    client.count(query).dmap(_.count)
+    client.count(query).dmap(_.count.toInt)
 
   def validateAccounts(query: Query.Game, forMod: Boolean): Fu[Boolean] =
     fuccess(forMod) >>| userApi.containsDisabled(query.userIds).not
