@@ -9,6 +9,7 @@ import scalalib.actor.AsyncActorSequencers
 
 import lila.study.{ ChapterPreviewApi, MultiPgn, StudyPgnImport }
 import lila.common.HTTPRequest
+import lila.tree.ImportResult
 
 final class RelayPush(
     sync: RelaySync,
@@ -93,34 +94,27 @@ final class RelayPush(
       .in(tc)(MultiPgn.split(pgnBody, RelayFetch.maxChaptersToShow))
       .value
       .map: pgn =>
-        validate(pgn).flatMap: tags =>
-          StudyPgnImport
-            .result(pgn, Nil)
-            .bimap(
-              errStr => Failure(tags, oneline(errStr)),
-              game => RelayGame.fromStudyImport(game)
-            )
+        validate(pgn).map: importResult =>
+          RelayGame.fromStudyImport(StudyPgnImport.result(importResult, Nil))
 
   // silently consume DGT board king-check move to center at game end
-  private def validate(pgnBody: PgnStr): Either[Failure, Tags] =
-    Parser
-      .full(pgnBody)
+  private def validate(pgnBody: PgnStr): Either[Failure, ImportResult] =
+    lila.tree
+      .parseImport(pgnBody)
       .fold(
         err => Left(Failure(Tags.empty, oneline(err))),
-        parsed =>
-          val game = Game(variantOption = parsed.tags.variant, fen = parsed.tags.fen)
-
-          val mainline = parsed.mainline
+        result =>
+          val game     = Game(variantOption = result.parsed.tags.variant, fen = result.parsed.tags.fen)
+          val mainline = result.parsed.mainline
           val (maybeErr, replay) = mainline.foldLeft((none[ErrorStr], Replay(game))):
             case (acc @ (Some(_), _), _) => acc
             case ((none, r), san) =>
               san(r.state.situation).fold(err => (err.some, r), mv => (none, r.addMove(mv)))
-
-          maybeErr.fold(parsed.tags.asRight): err =>
+          maybeErr.fold(result.asRight): err =>
             mainline.lastOption match
               case Some(mv: Std) if isFatal(mv, replay, mainline) =>
-                Left(Failure(parsed.tags, oneline(err)))
-              case _ => Right(parsed.tags)
+                Failure(result.parsed.tags, oneline(err)).asLeft
+              case _ => result.asRight
       )
 
   private def isFatal(mv: Std, replay: Replay, parsed: List[San]) =
