@@ -8,9 +8,10 @@ import chess.{ ErrorStr, Game, Replay, Square, TournamentClock }
 import scalalib.actor.AsyncActorSequencers
 import lila.tree.ImportResult
 
-import lila.study.{ ChapterPreviewApi, MultiPgn, StudyPgnImport }
+import lila.study.{ ChapterPreviewApi, MultiPgn }
 import lila.common.HTTPRequest
 import RelayPush.*
+import lila.study.StudyPgnImportNew
 
 final class RelayPush(
     sync: RelaySync,
@@ -43,7 +44,7 @@ final class RelayPush(
       val andSyncTargets = games.nonEmpty
 
       rt.round.sync.delayMinusLag
-        .ifTrue(games.exists(_.root.children.nonEmpty))
+        .ifTrue(games.exists(_.root.tree.exists(_.nonEmpty)))
         .match
           case None => push(rt, games, andSyncTargets).inject(response)
           case Some(delay) =>
@@ -92,7 +93,7 @@ final class RelayPush(
       .value
       .map: pgn =>
         validate(pgn).map: importResult =>
-          RelayGame.fromStudyImport(StudyPgnImport.result(importResult, Nil))
+          RelayGame.fromStudyImport(StudyPgnImportNew.result(importResult, Nil))
 
 object RelayPush:
 

@@ -108,12 +108,42 @@ case class NewBranch(
         forceVariation = n.forceVariation || forceVariation
       )
 
+  def toBranch(children: Option[NewTree]): Branch = Branch(
+    id,
+    ply,
+    move,
+    fen,
+    check,
+    dests,
+    drops,
+    eval,
+    shapes,
+    comments,
+    gamebook,
+    glyphs,
+    children.fold(Branches.empty)(_.toBranches),
+    opening,
+    comp,
+    clock,
+    crazyData,
+    forceVariation
+  )
+
 object NewBranch:
   given HasId[NewBranch, UciCharPair] = _.id
   given Mergeable[NewBranch] with
     extension (a: NewBranch) def merge(other: NewBranch): Option[NewBranch] = a.merge(other)
 
 type NewTree = ChessNode[NewBranch]
+
+extension (newTree: NewTree)
+  // We lost variations here
+  // newTree.toBranch == newTree.withoutVariations.toBranch
+  def toBranch: Branch = newTree.value.toBranch(newTree.child)
+
+  def toBranches: Branches =
+    val variations = newTree.variations.map(_.toNode.toBranch)
+    Branches(newTree.value.toBranch(newTree.child) :: variations)
 
 object NewTree:
   // default case class constructor not working with type alias?
@@ -171,6 +201,10 @@ object NewTree:
   given defaultNodeJsonWriter: Writes[NewTree] =
     NewRoot.makeNodeWriter
 
+  extension [A](tree: ChessNode[A])
+    def modifyInMainline(f: A => A): ChessNode[A] =
+      tree.copy(value = f(tree.value), child = tree.child.map(_.modifyInMainline(f)))
+
   // def filterById(id: UciCharPair) = ChessNode.filterOptional[NewBranch](_.id == id)
   // def fromNodeToBranch(node: Node): NewBranch = ???
 
@@ -192,6 +226,24 @@ case class NewRoot(metas: Metas, tree: Option[NewTree]):
     clock,
     crazyData
   }
+
+  def toRoot =
+    Root(
+      ply,
+      fen,
+      check,
+      dests,
+      drops,
+      eval,
+      shapes,
+      comments,
+      gamebook,
+      glyphs,
+      tree.fold(Branches.empty)(_.toBranches),
+      opening,
+      clock,
+      crazyData
+    )
 
   def mainline: List[NewTree] = tree.fold(List.empty[NewTree])(_.mainline)
 
@@ -230,6 +282,9 @@ case class NewRoot(metas: Metas, tree: Option[NewTree]):
   def addBranchAt(path: UciPath, branch: NewBranch): Option[NewRoot] =
     if tree.isEmpty && path.isEmpty then copy(tree = ChessNode(branch).some).some
     else tree.flatMap(_.addValueAsChildAt(path.ids, branch)).map(x => copy(tree = x.some))
+
+  def modifyMainline(f: NewBranch => NewBranch): NewRoot =
+    copy(tree = tree.map(_.modifyInMainline(f)))
 
   def modifyWithParentPathMetas(path: UciPath, f: Metas => Metas): Option[NewRoot] =
     if tree.isEmpty && path.isEmpty then copy(metas = f(metas)).some
@@ -272,7 +327,8 @@ case class NewRoot(metas: Metas, tree: Option[NewTree]):
 
   def lastMainlineNode: Option[ChessNode[NewBranch]] = tree.map(_.lastMainlineNode)
   def lastMainlineMetas: Option[Metas]               = lastMainlineNode.map(_.value.metas)
-  def lastMainlineMetasOrRoots: Metas                = lastMainlineMetas | metas
+  // useful for Root.lastMainlineNode
+  def lastMainlineMetasOrRoots: Metas = lastMainlineMetas.getOrElse(metas)
 
   def takeMainlineWhile(f: NewBranch => Boolean): NewRoot =
     tree.fold(this)(t => copy(tree = t.takeMainlineWhile(f)))

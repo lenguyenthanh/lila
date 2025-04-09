@@ -46,55 +46,7 @@ object Helpers:
 
     def debug = root.ppAs(rootToPgn)
 
-  extension (newBranch: NewBranch)
-    def toBranch(children: Option[NewTree]): Branch = Branch(
-      newBranch.id,
-      newBranch.ply,
-      newBranch.move,
-      newBranch.fen,
-      newBranch.check,
-      newBranch.dests,
-      newBranch.drops,
-      newBranch.eval,
-      newBranch.shapes,
-      newBranch.comments,
-      newBranch.gamebook,
-      newBranch.glyphs,
-      children.fold(Branches.empty)(_.toBranches),
-      newBranch.opening,
-      newBranch.comp,
-      newBranch.clock,
-      newBranch.crazyData,
-      newBranch.forceVariation
-    )
-
-  extension (newTree: NewTree)
-    // We lost variations here
-    // newTree.toBranch == newTree.withoutVariations.toBranch
-    def toBranch: Branch = newTree.value.toBranch(newTree.child)
-
-    def toBranches: Branches =
-      val variations = newTree.variations.map(_.toNode.toBranch)
-      Branches(newTree.value.toBranch(newTree.child) :: variations)
-
   extension (root: NewRoot)
-    def toRoot =
-      Root(
-        root.ply,
-        root.fen,
-        root.check,
-        root.dests,
-        root.drops,
-        root.eval,
-        root.shapes,
-        root.comments,
-        root.gamebook,
-        root.glyphs,
-        root.tree.fold(Branches.empty)(_.toBranches),
-        root.opening,
-        root.clock,
-        root.crazyData
-      )
 
     def cleanup: NewRoot =
       root

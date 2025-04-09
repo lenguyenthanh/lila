@@ -12,7 +12,7 @@ import lila.db.BSON.{ Reader, Writer }
 import lila.db.dsl.Bdoc
 import lila.study.BSONHandlers.given
 import lila.tree.Node.Shapes
-import lila.tree.{ Branch, NewRoot, NewTree, Node, Root, Clock }
+import lila.tree.{ Branch, NewRoot, NewTree, Node, Root, Clock, toBranch }
 
 import StudyArbitraries.{ *, given }
 

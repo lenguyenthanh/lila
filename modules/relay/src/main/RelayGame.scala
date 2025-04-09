@@ -5,22 +5,24 @@ import chess.Outcome.GamePoints
 import chess.format.pgn.{ Tag, TagType, Tags }
 
 import lila.study.{ MultiPgn, PgnDump }
-import lila.tree.{ Root, Clock }
+import lila.tree.{ Clock, NewRoot }
 import lila.tree.Node.Comments
 import chess.format.UciPath
+import monocle.syntax.all.*
+import chess.ByColor
 
 case class RelayGame(
     tags: Tags,
     variant: chess.variant.Variant,
-    root: Root,
+    root: NewRoot,
     points: Option[Outcome.GamePoints]
 ):
   override def toString =
-    s"RelayGame ${root.mainlineNodeList.size} ${tags.outcome} ${tags.names} ${tags.fideIds}"
+    s"RelayGame ${root.mainline.size} ${tags.outcome} ${tags.names} ${tags.fideIds}"
 
-  def isEmpty = tags.value.isEmpty && root.children.nodes.isEmpty
+  def isEmpty = tags.value.isEmpty && root.tree.forall(_.isEmpty)
 
-  def hasMoves = root.children.nodes.nonEmpty
+  def hasMoves = root.tree.exists(_.nonEmpty)
 
   def withoutMoves = copy(root = root.withoutChildren)
 
@@ -37,11 +39,11 @@ case class RelayGame(
       _.forall(tag => tags(tag).isEmpty)
 
   def applyTagClocksToLastMoves: RelayGame =
-    val clocks = tags.clocks
+    val clocks: ByColor[Option[Centis]] = tags.clocks
     if clocks.forall(_.isEmpty) then this
     else
       val mainlinePath = root.mainlinePath
-      val turn         = root.lastMainlineNode.ply.turn
+      val turn         = root.lastMainlineMetasOrRoots.ply.turn
       val newRoot = List(
         mainlinePath.nonEmpty.option(mainlinePath.parent) -> turn,
         mainlinePath.some                                 -> !turn
@@ -50,8 +52,8 @@ case class RelayGame(
         case _                   => none
       .foldLeft(root):
           case (root, (path, centis)) =>
-            if root.nodeAt(path).exists(_.clock.isDefined) then root
-            else root.setClockAt(Clock(centis, true.some).some, path) | root
+            if root.nodeAt(path).exists(_.value.metas.clock.isDefined) then root
+            else root.modifyAt(path, _.focus(_.clock).replace(Clock(centis, true.some).some)).getOrElse(root)
       copy(root = newRoot)
 
   def showResult = Outcome.showPoints(points)
@@ -70,11 +72,11 @@ private object RelayGame:
   def fromChapter(c: lila.study.Chapter) = RelayGame(
     tags = c.tags,
     variant = c.setup.variant,
-    root = c.root,
+    root = NewRoot(c.root),
     points = c.tags.points
   )
 
-  def fromStudyImport(res: lila.study.StudyPgnImport.Result): RelayGame =
+  def fromStudyImport(res: lila.study.StudyPgnImportNew.Result): RelayGame =
     val fixedTags = removeBrokenPlayerNames:
       Tags:
         // remove wrong ongoing result tag if the board has a mate on it
@@ -89,10 +91,9 @@ private object RelayGame:
     RelayGame(
       tags = fixedTags,
       variant = res.variant,
-      root = res.root.copy(
-        comments = Comments.empty,
-        children = res.root.children.updateMainline(_.copy(comments = Comments.empty))
-      ),
+      root = res.root
+        .modifyMainline(_.focus(_.metas.comments).replace(Comments.empty))
+        .copy(metas = res.root.metas.copy(comments = Comments.empty)),
       points = res.ending.map(_.points)
     ).applyTagClocksToLastMoves
 

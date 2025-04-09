@@ -23,57 +23,59 @@ object StudyPgnImportNew:
   )
 
   def result(pgn: PgnStr, contributors: List[LightUser]): Either[ErrorStr, Result] =
-    lila.tree.parseImport(pgn).map { case ImportResult(game, result, replay, initialFen, parsedPgn, _) =>
-      val annotator = StudyPgnImport.findAnnotator(parsedPgn, contributors)
-      StudyPgnImport.parseComments(parsedPgn.initialPosition.comments, annotator) match
-        case (shapes, _, _, comments) =>
-          val tc    = parsedPgn.tags.timeControl
-          val clock = tc.map(_.limit).map(Clock(_, true.some))
-          val setup = Context(replay.setup, ByColor.fill(clock), tc)
-          val root: NewRoot =
-            NewRoot(
-              Metas(
-                ply = replay.setup.ply,
-                fen = initialFen | game.board.variant.initialFen,
-                check = replay.setup.situation.check,
-                dests = None,
-                drops = None,
-                eval = None,
-                shapes = shapes,
-                comments = comments,
-                gamebook = None,
-                glyphs = Glyphs.empty,
-                opening = None,
-                crazyData = replay.setup.situation.board.crazyData,
-                clock = clock
-              ),
-              parsedPgn.tree.flatMap(makeTree(setup, _, annotator))
-            )
+    lila.tree.parseImport(pgn).map(result(_, contributors))
 
-          val gameEnd = result.map: res =>
-            StudyPgnImport.Ending(
-              status = res.status,
-              points = res.points,
-              resultText = chess.Outcome.showPoints(res.points.some),
-              statusText = lila.tree.StatusText(res.status, res.winner, game.board.variant)
-            )
-
-          val commented =
-            if root.tree.map(_.lastMainlineNode).exists(_.value.metas.comments.value.nonEmpty) then root
-            else
-              gameEnd.map(StudyPgnImport.endComment).fold(root) { comment =>
-                root
-                  .focus(_.tree.some)
-                  .modify(_.modifyLastMainlineNode(_.focus(_.value.metas.comments).modify(_ + comment)))
-              }
-          Result(
-            root = commented,
-            variant = game.board.variant,
-            tags = PgnTags
-              .withRelevantTags(parsedPgn.tags, Set(Tag.WhiteClock, Tag.BlackClock)),
-            ending = gameEnd
+  def result(importResult: ImportResult, contributors: List[LightUser]): Result =
+    import importResult.*
+    val annotator = StudyPgnImport.findAnnotator(parsed, contributors)
+    StudyPgnImport.parseComments(parsed.initialPosition.comments, annotator) match
+      case (shapes, _, _, comments) =>
+        val tc    = parsed.tags.timeControl
+        val clock = tc.map(_.limit).map(Clock(_, true.some))
+        val setup = Context(replay.setup, ByColor.fill(clock), tc)
+        val root: NewRoot =
+          NewRoot(
+            Metas(
+              ply = replay.setup.ply,
+              fen = initialFen | game.board.variant.initialFen,
+              check = replay.setup.situation.check,
+              dests = None,
+              drops = None,
+              eval = None,
+              shapes = shapes,
+              comments = comments,
+              gamebook = None,
+              glyphs = Glyphs.empty,
+              opening = None,
+              crazyData = replay.setup.situation.board.crazyData,
+              clock = clock
+            ),
+            parsed.tree.flatMap(makeTree(setup, _, annotator))
           )
-    }
+
+        val gameEnd = importResult.result.map: res =>
+          StudyPgnImport.Ending(
+            status = res.status,
+            points = res.points,
+            resultText = chess.Outcome.showPoints(res.points.some),
+            statusText = lila.tree.StatusText(res.status, res.winner, game.board.variant)
+          )
+
+        val commented =
+          if root.tree.map(_.lastMainlineNode).exists(_.value.metas.comments.value.nonEmpty) then root
+          else
+            gameEnd.map(StudyPgnImport.endComment).fold(root) { comment =>
+              root
+                .focus(_.tree.some)
+                .modify(_.modifyLastMainlineNode(_.focus(_.value.metas.comments).modify(_ + comment)))
+            }
+        Result(
+          root = commented,
+          variant = game.board.variant,
+          tags = PgnTags
+            .withRelevantTags(parsed.tags, Set(Tag.WhiteClock, Tag.BlackClock)),
+          ending = gameEnd
+        )
 
   private def makeTree(
       context: Context,

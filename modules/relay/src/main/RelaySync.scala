@@ -5,7 +5,7 @@ import chess.format.pgn.{ Tag, Tags }
 
 import lila.core.socket.Sri
 import lila.study.*
-import lila.tree.Branch
+import lila.tree.{ Branch, toBranch }
 import lila.study.AddNode
 
 final private class RelaySync(
@@ -71,7 +71,7 @@ final private class RelaySync(
     then fuccess(chapter)
     else
       studyApi
-        .resetRoot(studyId, chapter.id, game.root.withoutChildren, game.variant)(who(chapter.ownerId))
+        .resetRoot(studyId, chapter.id, game.root.withoutChildren.toRoot, game.variant)(who(chapter.ownerId))
         .dmap(_ | chapter)
 
   private type NbMoves = Int
@@ -83,9 +83,9 @@ final private class RelaySync(
       case ((parentPath, None), gameNode) =>
         val path = parentPath + gameNode.id
         chapter.root.nodeAt(path) match
-          case None => parentPath -> gameNode.some
+          case None => parentPath -> gameNode.toBranch.some
           case Some(existing) =>
-            gameNode.clock
+            gameNode.value.clock
               .filter: c =>
                 existing.clock.forall: prev =>
                   ~c.trust && c.centis != prev.centis
@@ -130,14 +130,13 @@ final private class RelaySync(
           chapter.relay
             .exists(_.path != gameMainlinePath)
             .so:
-              game.root.children
-                .nodeAt(gameMainlinePath)
+              game.root.lastMainlineNode
                 .so: lastMainlineNode =>
                   studyApi.addNode:
                     AddNode(
                       studyId = study.id,
                       positionRef = Position(chapter, gameMainlinePath.parent).ref,
-                      node = lastMainlineNode,
+                      node = lastMainlineNode.toBranch,
                       opts = moveOpts,
                       relay = makeRelayFor(game, gameMainlinePath).some
                     )(using by)
@@ -203,7 +202,7 @@ final private class RelaySync(
       studyId = study.id,
       name = chapterName(game, order),
       setup = Chapter.Setup(none, game.variant, Color.White),
-      root = game.root,
+      root = game.root.toRoot,
       tags = game.tags,
       order = order,
       ownerId = study.ownerId,

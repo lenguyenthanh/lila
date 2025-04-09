@@ -12,7 +12,7 @@ import lila.core.lilaism.LilaInvalid
 import lila.game.{ GameRepo, PgnDump }
 import lila.memo.CacheApi
 import lila.relay.RelayRound.Sync
-import lila.study.{ MultiPgn, StudyPgnImport }
+import lila.study.{ MultiPgn, StudyPgnImportNew }
 
 final private class RelayFetch(
     sync: RelaySync,
@@ -418,7 +418,7 @@ private object RelayFetch:
         .build(compute)
 
     private def compute(pgn: PgnStr): Either[LilaInvalid, RelayGame] =
-      StudyPgnImport
+      StudyPgnImportNew
         .result(pgn, Nil)
         .leftMap(err => LilaInvalid(err.value))
         .map(RelayGame.fromStudyImport)

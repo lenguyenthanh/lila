@@ -105,11 +105,12 @@ case class Branches(nodes: List[Branch]) extends AnyVal:
     updateWith(id, _.withChildren(f))
 
   def updateMainline(f: Branch => Branch): Branches =
-    Branches(nodes match
-      case main :: others =>
-        val newNode = f(main)
-        newNode.copy(children = newNode.children.updateMainline(f)) :: others
-      case x => x)
+    Branches:
+      nodes match
+        case main :: others =>
+          val newNode = f(main)
+          newNode.copy(children = newNode.children.updateMainline(f)) :: others
+        case x => x
 
   def takeMainlineWhile(f: Branch => Boolean): Branches =
     updateMainline: node =>
