@@ -122,7 +122,7 @@ class NewTreeCheck extends munit.ScalaCheckSuite:
 
   test("current tree's bug with takeMainlineWhile".ignore):
     val pgn     = "1. d4 d5 2. e4 e5"
-    val newRoot = StudyPgnImportNew(pgn, Nil).toOption.get.root
+    val newRoot = StudyPgnImportNew.result(pgn, Nil).toOption.get.root
     val oldRoot = newRoot.toRoot
     assert(oldRoot.takeMainlineWhile(_.clock.isDefined).children.isEmpty)
 

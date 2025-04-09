@@ -20,8 +20,8 @@ class NewTreeTest extends munit.FunSuite:
   test("PgnImport works"):
     PgnFixtures.all.foreach: pgn =>
       val x = StudyPgnImport.result(pgn, Nil).toOption.get
-      val y = StudyPgnImportNew(pgn, Nil).toOption.get
-      assertEquals(y.end, x.ending)
+      val y = StudyPgnImportNew.result(pgn, Nil).toOption.get
+      assertEquals(y.ending, x.ending)
       assertEquals(y.variant, x.variant)
       assertEquals(y.tags, x.tags)
       val oldRoot = x.root.toNewRoot.cleanup

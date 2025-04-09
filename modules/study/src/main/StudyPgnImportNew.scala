@@ -19,10 +19,10 @@ object StudyPgnImportNew:
       root: NewRoot,
       variant: chess.variant.Variant,
       tags: Tags,
-      end: Option[StudyPgnImport.Ending]
+      ending: Option[StudyPgnImport.Ending]
   )
 
-  def apply(pgn: PgnStr, contributors: List[LightUser]): Either[ErrorStr, Result] =
+  def result(pgn: PgnStr, contributors: List[LightUser]): Either[ErrorStr, Result] =
     lila.tree.parseImport(pgn).map { case ImportResult(game, result, replay, initialFen, parsedPgn, _) =>
       val annotator = StudyPgnImport.findAnnotator(parsedPgn, contributors)
       StudyPgnImport.parseComments(parsedPgn.initialPosition.comments, annotator) match
@@ -71,7 +71,7 @@ object StudyPgnImportNew:
             variant = game.board.variant,
             tags = PgnTags
               .withRelevantTags(parsedPgn.tags, Set(Tag.WhiteClock, Tag.BlackClock)),
-            end = gameEnd
+            ending = gameEnd
           )
     }
 
