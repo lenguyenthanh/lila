@@ -16,6 +16,7 @@ case class ImportResult(
     replay: Replay,
     initialFen: Option[Fen.Full],
     parsed: ParsedPgn
+    // error: Option[ErrorStr] // Some when Replay is incomplete
 )
 
 private val maxPlies = 600
