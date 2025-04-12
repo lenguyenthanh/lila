@@ -32,16 +32,14 @@ val parseImport: PgnStr => Either[ErrorStr, ImportResult] = pgn =>
         .pipe { case (replay @ Replay(setup, _, state), relayError) =>
           val initBoard    = parsed.tags.fen.flatMap(Fen.read).map(_.board)
           val fromPosition = initBoard.nonEmpty && !parsed.tags.fen.exists(_.isInitial)
-          val variant =
-            parsed.tags.variant | {
-              if fromPosition then FromPosition
-              else Standard
-            } match
-              case Chess960 if !isChess960StartPosition(setup.situation) =>
-                FromPosition
-              case FromPosition if parsed.tags.fen.isEmpty => Standard
-              case Standard if fromPosition                => FromPosition
-              case v                                       => v
+          val variant = parsed.tags.variant | {
+            if fromPosition then FromPosition
+            else Standard
+          } match
+            case Chess960 if !isChess960StartPosition(setup.situation) => FromPosition
+            case FromPosition if parsed.tags.fen.isEmpty               => Standard
+            case Standard if fromPosition                              => FromPosition
+            case v                                                     => v
           val game = state.copy(situation = state.situation.withVariant(variant))
           val initialFen = parsed.tags.fen
             .flatMap(Fen.readWithMoveNumber(variant, _))
@@ -74,8 +72,8 @@ private def isChess960StartPosition(sit: Situation) =
   import chess.*
   val strict =
     def rankMatches(f: Option[Piece] => Boolean)(rank: Rank) =
-      File.all.forall: file =>
-        f(sit.board(file, rank))
+      File.all.forall(file => f(sit.board(file, rank)))
+
     rankMatches {
       case Some(Piece(White, King | Queen | Rook | Knight | Bishop)) => true
       case _                                                         => false

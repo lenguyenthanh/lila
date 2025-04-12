@@ -13,7 +13,7 @@ import lila.tree.{ ImportResult, Metas, NewBranch, NewRoot, NewTree, Clock }
 // This code is still unused
 object StudyPgnImportNew:
 
-  import StudyPgnImport.Context
+  import StudyPgnImport.{ Context, findAnnotator, parseComments, guessNewClockState }
 
   case class Result(
       root: NewRoot,
@@ -27,8 +27,8 @@ object StudyPgnImportNew:
 
   def result(importResult: ImportResult, contributors: List[LightUser]): Result =
     import importResult.*
-    val annotator = StudyPgnImport.findAnnotator(parsed, contributors)
-    StudyPgnImport.parseComments(parsed.initialPosition.comments, annotator) match
+    val annotator = findAnnotator(parsed, contributors)
+    parseComments(parsed.initialPosition.comments, annotator) match
       case (shapes, _, _, comments) =>
         val tc    = parsed.tags.timeControl
         val clock = tc.map(_.limit).map(Clock(_, true.some))
@@ -97,14 +97,14 @@ object StudyPgnImportNew:
         val uci                            = moveOrDrop.toUci
         val id                             = UciCharPair(uci)
         val sanStr                         = moveOrDrop.toSanStr
-        val (shapes, clock, emt, comments) = StudyPgnImport.parseComments(data.metas.comments, annotator)
+        val (shapes, clock, emt, comments) = parseComments(data.metas.comments, annotator)
         val mover                          = !game.ply.turn
-        val computedClock: Option[Clock] = clock
-          .map(Clock(_, trust = true.some))
-          .orElse:
-            (context.clocks(mover), emt)
-              .mapN(StudyPgnImport.guessNewClockState(_, game.ply, context.timeControl, _))
-          .filter(_.positive)
+        val computedClock: Option[Clock] =
+          clock
+            .map(Clock(_, true.some))
+            .orElse:
+              (context.clocks(mover), emt).mapN(guessNewClockState(_, game.ply, context.timeControl, _))
+            .filter(_.positive)
         val newBranch =
           NewBranch(
             id = id,
