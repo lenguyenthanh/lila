@@ -39,8 +39,8 @@ def parseImport(pgn: PgnStr): Either[ErrorStr, ImportResult] =
     }
 
 def extractVariant(replay: Replay, tags: Tags): Variant =
-  val initBoard    = tags.fen.flatMap(Fen.read).map(_.board)
-  val fromPosition = initBoard.nonEmpty && !tags.fen.exists(_.isInitial)
+  inline def initBoard  = tags.fen.flatMap(Fen.read).map(_.board)
+  lazy val fromPosition = initBoard.nonEmpty && !tags.fen.exists(_.isInitial)
 
   tags.variant | {
     if fromPosition then FromPosition
