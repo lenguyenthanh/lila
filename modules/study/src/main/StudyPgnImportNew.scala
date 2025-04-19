@@ -8,7 +8,7 @@ import monocle.syntax.all.*
 
 import lila.core.LightUser
 import lila.tree.Node.{ Comment, Comments }
-import lila.tree.{ ImportResult, Metas, NewBranch, NewRoot, NewTree, Clock }
+import lila.tree.{ ImportResult, Metas, NewBranch, NewRoot, NewTree, Clock, ParseImport }
 
 // This code is still unused
 object StudyPgnImportNew:
@@ -23,7 +23,7 @@ object StudyPgnImportNew:
   )
 
   def apply(pgn: PgnStr, contributors: List[LightUser]): Either[ErrorStr, Result] =
-    lila.tree.parseImport(pgn).map { case ImportResult(game, result, replay, initialFen, parsedPgn, _) =>
+    ParseImport.parseImport(pgn).map { case ImportResult(game, result, replay, initialFen, parsedPgn, _) =>
       val annotator = StudyPgnImport.findAnnotator(parsedPgn, contributors)
       StudyPgnImport.parseComments(parsedPgn.initialPosition.comments, annotator) match
         case (shapes, _, _, comments) =>
