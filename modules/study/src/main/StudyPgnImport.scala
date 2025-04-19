@@ -11,17 +11,25 @@ import lila.tree.{ Branch, Branches, ImportResult, Root, Clock }
 
 object StudyPgnImport:
 
-  case class Context(
-      currentGame: chess.Game,
-      clocks: ByColor[Option[Clock]],
-      timeControl: Option[TournamentClock]
+  case class Result(
+      root: Root,
+      variant: chess.variant.Variant,
+      tags: Tags,
+      ending: Option[Ending]
+  )
+
+  case class Ending(
+      status: Status,
+      points: Outcome.GamePoints,
+      resultText: String,
+      statusText: String
   )
 
   def result(pgn: PgnStr, contributors: List[LightUser]): Either[ErrorStr, Result] =
     lila.tree.parseImport(pgn).map(result(_, contributors))
 
   def result(importResult: ImportResult, contributors: List[LightUser]): Result =
-    import importResult.*
+    import importResult.{ replay, parsed, initialFen, game }
     val annotator = findAnnotator(parsed, contributors)
 
     val timeControl = parsed.tags.timeControl
@@ -64,18 +72,10 @@ object StudyPgnImport:
           ending = ending
         )
 
-  case class Result(
-      root: Root,
-      variant: chess.variant.Variant,
-      tags: Tags,
-      ending: Option[Ending]
-  )
-
-  case class Ending(
-      status: Status,
-      points: Outcome.GamePoints,
-      resultText: String,
-      statusText: String
+  case class Context(
+      currentGame: chess.Game,
+      clocks: ByColor[Option[Clock]],
+      timeControl: Option[TournamentClock]
   )
 
   def findAnnotator(pgn: ParsedPgn, contributors: List[LightUser]): Option[Comment.Author] =

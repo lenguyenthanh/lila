@@ -94,7 +94,7 @@ object NewTreeBuilder:
         end makeBranch
 
         val tree: Option[NewTree] =
-          chess.Tree.build[((chess.Game, Uci.WithSan), Int), NewBranch](
+          chess.Tree.build(
             games.zipWithIndex,
             { case ((game, move), index) => makeBranch(game, move, index + 1) }
           )

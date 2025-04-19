@@ -1,7 +1,7 @@
 package lila.tree
 
 import chess.format.Fen
-import chess.format.pgn.{ ParsedPgn, Parser, PgnStr, Reader, Sans }
+import chess.format.pgn.{ ParsedPgn, Parser, PgnStr, Reader, Sans, Tags }
 import chess.variant.*
 import chess.{ Game as ChessGame, * }
 
@@ -21,7 +21,7 @@ case class ImportResult(
 
 private val maxPlies = 600
 
-val parseImport: PgnStr => Either[ErrorStr, ImportResult] = pgn =>
+def parseImport(pgn: PgnStr): Either[ErrorStr, ImportResult] =
   catchOverflow: () =>
     Parser.full(pgn).map { parsed =>
       Reader
@@ -29,45 +29,47 @@ val parseImport: PgnStr => Either[ErrorStr, ImportResult] = pgn =>
         .pipe:
           case Reader.Result.Complete(replay)          => (replay, none[ErrorStr])
           case Reader.Result.Incomplete(replay, error) => (replay, error.some)
-        .pipe { case (replay @ Replay(setup, _, state), relayError) =>
-          val initBoard    = parsed.tags.fen.flatMap(Fen.read).map(_.board)
-          val fromPosition = initBoard.nonEmpty && !parsed.tags.fen.exists(_.isInitial)
-          val variant =
-            parsed.tags.variant | {
-              if fromPosition then FromPosition
-              else Standard
-            } match
-              case Chess960 if !isChess960StartPosition(setup.situation) =>
-                FromPosition
-              case FromPosition if parsed.tags.fen.isEmpty => Standard
-              case Standard if fromPosition                => FromPosition
-              case v                                       => v
-          val game = state.copy(situation = state.situation.withVariant(variant))
-          val initialFen = parsed.tags.fen
-            .flatMap(Fen.readWithMoveNumber(variant, _))
-            .map(Fen.write)
-
-          val status = parsed.tags(_.Termination).map(_.toLowerCase) match
-            case Some("normal") =>
-              game.situation.status |
-                (if parsed.tags.outcome.exists(_.winner.isEmpty) then Status.Draw else Status.Resign)
-            case Some("abandoned")                        => Status.Aborted
-            case Some("time forfeit")                     => Status.Outoftime
-            case Some("rules infraction")                 => Status.Cheat
-            case Some(txt) if txt.contains("won on time") => Status.Outoftime
-            case _                                        => Status.UnknownFinish
-
-          val result = parsed.tags.points
-            .map(points => TagResult(status, points))
-            .filter(_.status > Status.Started)
-            .orElse:
-              game.situation.status.flatMap: status =>
-                Outcome
-                  .guessPointsFromStatusAndPosition(status, game.situation.winner)
-                  .map(TagResult(status, _))
-
+        .pipe { (replay, relayError) =>
+          val variant    = extractVariant(replay, parsed.tags)
+          val initialFen = parsed.tags.fen.flatMap(Fen.readWithMoveNumber(variant, _)).map(Fen.write)
+          val game       = replay.state.copy(situation = replay.state.situation.withVariant(variant))
+          val result     = extractResult(game, parsed.tags)
           ImportResult(game, result, replay.copy(state = game), initialFen, parsed, relayError)
         }
+    }
+
+def extractVariant(replay: Replay, tags: Tags): Variant =
+  val initBoard    = tags.fen.flatMap(Fen.read).map(_.board)
+  val fromPosition = initBoard.nonEmpty && !tags.fen.exists(_.isInitial)
+
+  tags.variant | {
+    if fromPosition then FromPosition
+    else Standard
+  } match
+    case Chess960 if !isChess960StartPosition(replay.setup.situation) =>
+      FromPosition
+    case FromPosition if tags.fen.isEmpty => Standard
+    case Standard if fromPosition         => FromPosition
+    case v                                => v
+
+def extractResult(game: ChessGame, tags: Tags): Option[TagResult] =
+  val status = tags(_.Termination).map(_.toLowerCase) match
+    case Some("normal") =>
+      game.situation.status | (if tags.outcome.exists(_.winner.isEmpty) then Status.Draw else Status.Resign)
+    case Some("abandoned")                        => Status.Aborted
+    case Some("time forfeit")                     => Status.Outoftime
+    case Some("rules infraction")                 => Status.Cheat
+    case Some(txt) if txt.contains("won on time") => Status.Outoftime
+    case _                                        => Status.UnknownFinish
+
+  tags.points
+    .map(points => TagResult(status, points))
+    .filter(_.status > Status.Started)
+    .orElse {
+      game.situation.status.flatMap: status =>
+        Outcome
+          .guessPointsFromStatusAndPosition(status, game.situation.winner)
+          .map(TagResult(status, _))
     }
 
 private def isChess960StartPosition(sit: Situation) =
