@@ -4,11 +4,9 @@ import chess.format.Fen
 import chess.format.pgn.{ ParsedPgn, Parser, PgnStr, Reader, Sans, Tags }
 import chess.variant.*
 import chess.{ Game as ChessGame, * }
-
-case class TagResult(status: Status, points: Outcome.GamePoints):
-  // duplicated from Game.finish
-  def finished              = status >= Status.Mate
-  def winner: Option[Color] = Outcome.fromPoints(points).flatMap(_.winner)
+import chess.format.FullFen
+import chess.format.pgn.ParsedMainline
+import chess.format.pgn.San
 
 case class ImportResult(
     game: ChessGame,
@@ -19,27 +17,42 @@ case class ImportResult(
     replayError: Option[ErrorStr]
 )
 
-private val maxPlies = 600
+case class TagResult(status: Status, points: Outcome.GamePoints):
+  // duplicated from Game.finish
+  def finished              = status >= Status.Mate
+  def winner: Option[Color] = Outcome.fromPoints(points).flatMap(_.winner)
 
 object ParseImport:
 
-  def parseImport(pgn: PgnStr): Either[ErrorStr, ImportResult] =
+  private val maxPlies = 600
+
+  def full(pgn: PgnStr): Either[ErrorStr, ImportResult] =
     catchOverflow: () =>
       Parser.full(pgn).map { parsed =>
         Reader
           .fullWithSans(parsed, _.map(_.take(maxPlies)))
-          .pipe:
-            case Reader.Result.Complete(replay)          => (replay, none[ErrorStr])
-            case Reader.Result.Incomplete(replay, error) => (replay, error.some)
-          .pipe { (replay, relayError) =>
+          .pipe { case Reader.Result(replay, replayError) =>
             val variant    = extractVariant(replay, parsed.tags)
             val initialFen = parsed.tags.fen.flatMap(Fen.readWithMoveNumber(variant, _)).map(Fen.write)
             val game       = replay.state.copy(situation = replay.state.situation.withVariant(variant))
             val result     = extractResult(game, parsed.tags)
-            ImportResult(game, result, replay.copy(state = game), initialFen, parsed, relayError)
+            ImportResult(game, result, replay.copy(state = game), initialFen, parsed, replayError)
           }
       }
 
+  def game(pgn: PgnStr): Either[ErrorStr, (chess.Game, Option[TagResult], Option[FullFen], ParsedMainline[San], Option[ErrorStr])] =
+    catchOverflow: () =>
+      Parser.mainline(pgn).map { parsed =>
+        Reader
+          .fullWithSans(parsed)
+          .pipe { case Reader.Result(replay, replayError) =>
+            val variant    = extractVariant(replay, parsed.tags)
+            val initialFen = parsed.tags.fen.flatMap(Fen.readWithMoveNumber(variant, _)).map(Fen.write)
+            val game       = replay.state.copy(situation = replay.state.situation.withVariant(variant))
+            val result     = extractResult(game, parsed.tags)
+            (game, result, initialFen, parsed, replayError)
+          }
+      }
   def extractVariant(replay: Replay, tags: Tags): Variant =
     inline def initBoard  = tags.fen.flatMap(Fen.read).map(_.board)
     lazy val fromPosition = initBoard.nonEmpty && !tags.fen.exists(_.isInitial)

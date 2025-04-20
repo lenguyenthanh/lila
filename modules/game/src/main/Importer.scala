@@ -46,19 +46,20 @@ val form = Form:
   )(ImportData.apply)(unapply)
 
 val parseImport: (PgnStr, Option[UserId]) => Either[ErrorStr, ImportedGame] = (pgn, user) =>
-  ParseImport.parseImport(pgn).map { case ImportResult(game, result, _, initialFen, parsed, _) =>
-    val dbGame = lila.core.game
-      .newImportedGame(
-        chess = game,
-        players = ByColor: c =>
-          lila.game.Player.makeImported(c, parsed.tags.names(c), parsed.tags.ratings(c)),
-        mode = Mode.Casual,
-        source = lila.core.game.Source.Import,
-        pgnImport = PgnImport.make(user = user, date = parsed.tags.anyDate, pgn = pgn).some
-      )
-      .sloppy
-      .start
-      .pipe: dbGame =>
-        result.fold(dbGame)(res => dbGame.finish(res.status, res.winner))
-    ImportedGame(dbGame, initialFen)
-  }
+  ParseImport
+    .game(pgn)
+    .map: (game, result, initialFen, parsed, _) =>
+      val dbGame = lila.core.game
+        .newImportedGame(
+          chess = game,
+          players = ByColor: c =>
+            lila.game.Player.makeImported(c, parsed.tags.names(c), parsed.tags.ratings(c)),
+          mode = Mode.Casual,
+          source = lila.core.game.Source.Import,
+          pgnImport = PgnImport.make(user = user, date = parsed.tags.anyDate, pgn = pgn).some
+        )
+        .sloppy
+        .start
+        .pipe: dbGame =>
+          result.fold(dbGame)(res => dbGame.finish(res.status, res.winner))
+      ImportedGame(dbGame, initialFen)

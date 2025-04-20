@@ -103,7 +103,7 @@ object RelayPush:
   // silently consume DGT board king-check move to center at game end
   private[relay] def validate(pgnBody: PgnStr): Either[Failure, ImportResult] =
     ParseImport
-      .parseImport(pgnBody)
+      .full(pgnBody)
       .fold(
         err => Failure(Tags.empty, oneline(err)).asLeft,
         result =>

@@ -26,7 +26,7 @@ object StudyPgnImport:
   )
 
   def result(pgn: PgnStr, contributors: List[LightUser]): Either[ErrorStr, Result] =
-    ParseImport.parseImport(pgn).map(result(_, contributors))
+    ParseImport.full(pgn).map(result(_, contributors))
 
   def result(importResult: ImportResult, contributors: List[LightUser]): Result =
     import importResult.{ replay, parsed, initialFen, game }
