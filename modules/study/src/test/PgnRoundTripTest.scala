@@ -26,7 +26,7 @@ class PgnRoundTripTest extends munit.FunSuite:
         val dumped = rootToPgn(imported.root)
         assertEquals(dumped.value.cleanTags, pgn.cleanTags)
 
-  test("NewTree roundtrip".ignore):
+  test("NewTree roundtrip"):
     PgnFixtures.roundTrip
       .foreach: pgn =>
         val imported = StudyPgnImportNew(pgn, List(user)).toOption.get
@@ -46,7 +46,7 @@ class PgnRoundTripTest extends munit.FunSuite:
         val dumped = rootToPgn(afterBson)
         assertEquals(dumped.value.cleanTags, pgn.cleanTags)
 
-  test("NewTree roundtrip with BSONHandlers".ignore):
+  test("NewTree roundtrip with BSONHandlers"):
     PgnFixtures.roundTrip
       .foreach: pgn =>
         val imported = StudyPgnImportNew(pgn, List(user)).toOption.get

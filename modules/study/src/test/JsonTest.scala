@@ -23,7 +23,7 @@ class JsonTest extends munit.FunSuite:
         val json = writeTree(imported)
         assertEquals(json, expected)
 
-  test("NewTree Json writes".ignore):
+  test("NewTree Json writes"):
     PgnFixtures.roundTrip
       .zip(JsonFixtures.all)
       .foreach: (pgn, expected) =>
@@ -47,7 +47,7 @@ class JsonTest extends munit.FunSuite:
         val json = writeTree(afterBson)
         assertEquals(json, expected)
 
-  test("NewTree Json writes with BSONHandlers".ignore):
+  test("NewTree Json writes with BSONHandlers"):
     PgnFixtures.roundTrip
       .zip(JsonFixtures.all)
       .foreach: (pgn, expected) =>

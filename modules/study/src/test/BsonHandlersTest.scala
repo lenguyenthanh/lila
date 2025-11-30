@@ -29,20 +29,20 @@ class BsonHandlersTest extends munit.FunSuite:
       val y = treeBson.reads(treeBson.writes(w, x))
       assertEquals(y, x.withoutClockTrust)
 
-  test("NewTree writes.reads == identity".ignore):
+  test("NewTree writes.reads == identity"):
     PgnFixtures.all.foreach: pgn =>
       val x = StudyPgnImportNew(pgn, Nil).toOption.get.root
       val y = newTreeBson.reads(newTreeBson.writes(w, x))
       assertEquals(x.withoutClockTrust, y)
 
-  test("NewTree.reads.Tree.writes == identity".ignore):
+  test("NewTree.reads.Tree.writes == identity"):
     PgnFixtures.all.foreach: pgn =>
       val x = StudyPgnImport.result(pgn, Nil).toOption.get.root
       val bdoc = treeBson.writes(w, x)
       val y = newTreeBson.reads(bdoc)
       assertEquals(x.toNewRoot.cleanup.withoutClockTrust, y.cleanup)
 
-  test("Tree.reads.NewTree.writes == identity".ignore):
+  test("Tree.reads.NewTree.writes == identity"):
     PgnFixtures.all.foreach: pgn =>
       val x = StudyPgnImportNew(pgn, Nil).toOption.get.root
       val bdoc = newTreeBson.writes(w, x)
