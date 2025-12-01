@@ -63,7 +63,7 @@ object StudyPgnImportNew:
               }
           Result(
             root = commented,
-            variant = game.position.variant,
+            variant = replay.setup.position.variant,
             tags = StudyPgnTags
               .withRelevantTags(parsedPgn.tags, StudyPgnTags.clockTags, game.position.variant),
             end = gameEnd
