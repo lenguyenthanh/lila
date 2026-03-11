@@ -155,6 +155,7 @@ object NewTree:
     NewRoot.makeNodeWriter(lichobile = false)
 
   val lichobileNodeJsonWriter: Writes[NewTree] =
+    given OWrites[NewBranch] = NewRoot.makeBranchWriter(lichobile = true)
     NewRoot.makeNodeWriter(lichobile = true)
 
   // def filterById(id: UciCharPair) = ChessNode.filterOptional[NewBranch](_.id == id)
@@ -282,39 +283,61 @@ object NewRoot:
       .add("clock", clock.map(_.centis))
       .add("crazy", crazyData)
 
-  given OWrites[NewBranch] = OWrites: branch =>
-    metasWriter
-      .writes(branch.metas)
+  given OWrites[NewBranch] = makeBranchWriter(lichobile = false)
+
+  def makeBranchWriter(lichobile: Boolean): OWrites[NewBranch] = OWrites: branch =>
+    import branch.metas.*
+    val comments: List[Comment] = branch.metas.comments.value.flatMap(_.removeMeta)
+    Json
+      .obj(
+        "ply" -> ply,
+        "fen" -> fen
+      )
+      .add("id", lichobile.so(Option(branch.id)))
       .add("uci", branch.move.uci.uci.some)
       .add("san", branch.move.san.some)
+      .add("eval", eval.filterNot(_.isEmpty))
+      .add("comments", Option.when(comments.nonEmpty)(comments))
+      .add("gamebook", gamebook)
+      .add("glyphs", glyphs.nonEmpty)
+      .add("shapes", Option.when(shapes.value.nonEmpty)(shapes.value))
+      .add("clock", clock.map(_.centis))
+      .add("crazy", crazyData)
       .add("comp", branch.comp)
-      .add("forceVariation", branch.forceVariation)
 
   given defaultNodeJsonWriter: Writes[NewRoot] = makeRootJsonWriter(lichobile = false)
   val lichobileNodeJsonWriter: Writes[NewRoot] = makeRootJsonWriter(lichobile = true)
 
-  def makeTreeWriter[A](lichobile: Boolean)(using wa: OWrites[A]): Writes[Tree[A]] = Writes: tree =>
-    wa.writes(tree.value)
-      .add(
-        "children",
-        Option.when(lichobile || tree.childAndChildVariations.nonEmpty):
-          nodeListJsonWriter(lichobile).writes(tree.childAndChildVariations)
-      )
+  def makeTreeWriter(lichobile: Boolean)(using wa: OWrites[NewBranch]): Writes[Tree[NewBranch]] =
+    Writes: tree =>
+      wa.writes(tree.value)
+        .add(
+          "children",
+          Option.when(lichobile || tree.childAndChildVariations.nonEmpty):
+            nodeListJsonWriter(lichobile).writes(tree.childAndChildVariations)
+        )
+        .add("forceVariation", tree.value.forceVariation)
 
-  def makeNodeWriter[A](lichobile: Boolean)(using OWrites[A]): Writes[ChessNode[A]] =
+  def makeNodeWriter(lichobile: Boolean)(using OWrites[NewBranch]): Writes[ChessNode[NewBranch]] =
     makeTreeWriter(lichobile).contramap(identity)
 
-  def makeMainlineWriter[A](using wa: OWrites[A]): Writes[ChessNode[A]] = Writes: tree =>
-    wa.writes(tree.value)
-      .add(
-        "children",
-        Option.when(tree.childVariations.nonEmpty):
-          nodeListJsonWriter(true).writes(tree.childVariations)
-      )
+  def makeMainlineWriter(lichobile: Boolean)(using wa: OWrites[NewBranch]): Writes[ChessNode[NewBranch]] =
+    Writes: tree =>
+      wa.writes(tree.value)
+        .add(
+          "children",
+          Option.when(lichobile || tree.childVariations.nonEmpty):
+            nodeListJsonWriter(lichobile).writes(tree.childVariations)
+        )
+        .add("forceVariation", tree.value.forceVariation)
 
-  def nodeListJsonWriter[A](alwaysChildren: Boolean)(using OWrites[A]): Writes[List[Tree[A]]] =
+  def nodeListJsonWriter(alwaysChildren: Boolean)(using OWrites[NewBranch]): Writes[List[Tree[NewBranch]]] =
     Writes: list =>
       JsArray(list.map(makeTreeWriter(alwaysChildren).writes))
+
+  private def makeLichobileNodeListWriter: Writes[List[Tree[NewBranch]]] =
+    given OWrites[NewBranch] = makeBranchWriter(lichobile = true)
+    nodeListJsonWriter(alwaysChildren = true)
 
   def makeRootJsonWriter(lichobile: Boolean): Writes[NewRoot] =
     Writes: root =>
@@ -327,11 +350,12 @@ object NewRoot:
         .add(
           "children",
           Option.when(lichobile || root.tree.isDefined):
-            nodeListJsonWriter(true)
+            val listWriter = if lichobile then makeLichobileNodeListWriter else nodeListJsonWriter(false)
+            listWriter
               .writes(root.tree.fold(Nil)(x => x.withoutVariations :: x.variations))
         )
 
-  val mainlineWriterForRoot: Writes[NewRoot] =
+  private def mainlineWriterForRoot(lichobile: Boolean): Writes[NewRoot] =
     Writes: root =>
       metasWriter
         .writes(root.metas)
@@ -342,11 +366,13 @@ object NewRoot:
         .add(
           "children",
           Option.when(root.tree.exists(_.childAndVariations.nonEmpty)):
-            nodeListJsonWriter(true).writes(root.tree.fold(Nil)(_.childAndVariations))
+            val listWriter = if lichobile then makeLichobileNodeListWriter else nodeListJsonWriter(false)
+            listWriter.writes(root.tree.fold(Nil)(_.childAndVariations))
         )
 
-  val partitionTreeJsonWriter: Writes[NewRoot] = Writes: root =>
+  def partitionTreeJsonWriter(lichobile: Boolean): Writes[NewRoot] = Writes: root =>
     val rootWithoutChild = root.updateTree(_.withoutChild.some)
-    val mainLineWriter = makeMainlineWriter[NewBranch]
+    given OWrites[NewBranch] = if lichobile then makeBranchWriter(true) else summon
+    val mainLineWriter = makeMainlineWriter(lichobile)
     JsArray:
-      mainlineWriterForRoot.writes(rootWithoutChild) +: root.mainline.map(mainLineWriter.writes)
+      mainlineWriterForRoot(lichobile).writes(rootWithoutChild) +: root.mainline.map(mainLineWriter.writes)

@@ -215,5 +215,5 @@ class NewTreeCheck extends munit.ScalaCheckSuite:
     forAll: (root: NewRoot) =>
       val oldRoot = root.toRoot
       val x = Node.partitionTreeWriter(oldRoot, false)
-      val y = NewRoot.partitionTreeJsonWriter.writes(root)
+      val y = NewRoot.partitionTreeJsonWriter(false).writes(root)
       assertEquals(x, y)
