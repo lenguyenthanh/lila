@@ -65,7 +65,11 @@ object StudyPgnImportNew:
             root = commented,
             variant = replay.setup.position.variant,
             tags = StudyPgnTags
-              .withRelevantTags(parsedPgn.tags, StudyPgnTags.clockTags, game.position.variant),
+              .withRelevantTags(
+                parsedPgn.tags,
+                StudyPgnTags.clockTags,
+                replay.setup.position.variant
+              ),
             end = gameEnd
           )
     }
