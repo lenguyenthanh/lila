@@ -10,7 +10,7 @@ import lila.ui.*
 
 import ScalatagsTemplate.{ *, given }
 
-final class StudyListUi(helpers: Helpers, bits: StudyBits):
+final class StudyListUi(helpers: Helpers, bits: StudyBits, emptySearchForm: () => Form[?]):
   import helpers.{ *, given }
   import trans.study as trs
 
@@ -96,21 +96,34 @@ final class StudyListUi(helpers: Helpers, bits: StudyBits):
       url = routes.Study.minePrivate(_)
     )
 
-  def search(pag: Paginator[WithChaptersAndLiked], order: StudyOrder, text: String)(using Context) =
+  def search(
+      pag: Option[Paginator[WithChaptersAndLiked]],
+      form: Form[?],
+      order: StudyOrder
+  )(using Context) =
+    val text = ~form("q").value
     Page(text)
       .css("analyse.study.index")
+      .js(Esm("bits.studyAdvancedSearch"))
       .js(infiniteScrollEsmInit):
         main(cls := "page-menu")(
           menu(StudyGroup.search, Some(order)),
           main(cls := "page-menu__content study-index box")(
             div(cls := "box__top")(
-              searchForm(trans.search.search.txt(), text, order),
-              bits.orderSelect(order, StudyGroup.search, url = o => routes.Study.search(text, 1, o.some)),
+              searchForm(trans.search.search.txt(), text, order, panelForm = form.some),
+              bits.orderSelect(order, StudyGroup.search, url = o => searchUrlFor(form, o.some)),
               bits.newForm()
             ),
-            paginate(pag, routes.Study.search(text, 1, order.some))
+            pag.fold(emptyFrag)(p => paginate(p, searchUrlFor(form, order.some)))
           )
         )
+
+  private def searchUrlFor(form: Form[?], order: Option[StudyOrder]): Call =
+    val base = routes.Study.search()
+    val params: Map[String, String] = form.data.collect:
+      case (k, v) if v.nonEmpty && k != "order" && k != "page" => k -> v
+    val withOrder = order.fold(params)(o => params + ("order" -> o.key))
+    Call(base.method, addQueryParams(base.url, withOrder), base.fragment)
 
   private def page(
       title: String,
@@ -123,6 +136,7 @@ final class StudyListUi(helpers: Helpers, bits: StudyBits):
   )(using Context): Page =
     Page(title)
       .css("analyse.study.index")
+      .js(Esm("bits.studyAdvancedSearch"))
       .js(infiniteScrollEsmInit):
         main(cls := "page-menu")(
           menu(active, Some(order), topics.so(_.value)),
@@ -185,11 +199,141 @@ final class StudyListUi(helpers: Helpers, bits: StudyBits):
       )(trs.whatAreStudies())
     )
 
-  def searchForm(placeholder: String, value: String, order: StudyOrder) =
+  def searchForm(
+      placeholder: String,
+      value: String,
+      order: StudyOrder,
+      panelForm: Option[Form[?]] = None
+  ) =
+    val panel = advancedPanel(panelForm | emptySearchForm())
     form(cls := "search", action := routes.Study.search(), method := "get")(
       form3.hidden("order", order.key),
       input(name := "q", st.placeholder := placeholder, st.value := value, enterkeyhint := "search"),
-      submitButton(cls := "button", dataIcon := Icon.Search)
+      submitButton(cls := "button", dataIcon := Icon.Search),
+      button(
+        cls := "button button-empty search__advanced-toggle",
+        tpe := "button",
+        attr("aria-controls") := "search-advanced",
+        attr("aria-expanded") := "false"
+      )("Advanced"),
+      panel
+    )
+
+  def advancedPanel(form: Form[?]): Frag =
+    val mode = ~form("mode").value
+    val isFiltersMode = mode == "chapterFilters"
+    val isTextMode = mode == "chapterText"
+    val isStudyOnly = mode.isEmpty
+    val refining = ~form("q").value
+    div(cls := "search__advanced", id := "search-advanced")(
+      div(cls := "search__advanced-head")(
+        div(cls := "search__advanced-title")(
+          h2("Advanced search"),
+          div(cls := "search__advanced-refining")(
+            "Refining: ",
+            span(cls := "search__advanced-q")(if refining.nonEmpty then s""""$refining"""" else "all studies"),
+            span(cls := "search__advanced-edit")(" — edit above to change query")
+          )
+        ),
+        div(cls := "search__advanced-modes", role := "radiogroup", attr("aria-label") := "Search mode")(
+          modeRadio(form("mode"), "", "Studies only", isStudyOnly),
+          modeRadio(form("mode"), "chapterText", "+ Chapter text", isTextMode),
+          modeRadio(form("mode"), "chapterFilters", "+ Chapter filters", isFiltersMode)
+        )
+      ),
+      div(
+        cls := List(
+          "search__advanced-hint" -> true,
+          "is-hidden" -> !isStudyOnly
+        ),
+        attr("data-mode") := ""
+      )("Text will match study name, description, and topics — but no chapter data."),
+      div(
+        cls := List(
+          "search__advanced-hint" -> true,
+          "is-hidden" -> !isTextMode
+        ),
+        attr("data-mode") := "chapterText"
+      )("Same text will also match chapter names, descriptions, and PGN tags."),
+      table(cls := "search__advanced-fields")(
+        tr(
+          th(label("Owner")),
+          td(form3.input(form("owner"))(st.placeholder := "Username"))
+        ),
+        tr(
+          th(label("Member")),
+          td(form3.input(form("member"))(st.placeholder := "Username"))
+        )
+      ),
+      div(
+        cls := List("search__advanced-divider" -> true, "is-hidden" -> !isFiltersMode),
+        attr("data-mode") := "chapterFilters"
+      )(
+        span(cls := "search__advanced-divider-line"),
+        span(cls := "search__advanced-divider-label")("Chapter filters"),
+        span(cls := "search__advanced-divider-line")
+      ),
+      table(
+        cls := List("search__advanced-fields" -> true, "filters" -> true, "is-hidden" -> !isFiltersMode)
+      )(
+        tr(
+          th(label("Variant")),
+          td(
+            form3.select(
+              form("variant"),
+              chess.variant.Variant.list.all.map(v => v.key.value -> v.name),
+              default = "Any variant".some
+            )
+          )
+        ),
+        tr(
+          th(label("ECO")),
+          td(
+            form3.input(form("eco"))(
+              st.placeholder := "e.g. B90",
+              pattern := "[A-Ea-e][0-9]{2}",
+              maxlength := 3
+            )
+          )
+        ),
+        tr(
+          th(label("Opening")),
+          td(form3.input(form("opening"))(st.placeholder := "e.g. Sicilian Najdorf"))
+        ),
+        tr(
+          th(label("Player(s)")),
+          td(cls := "two-columns")(
+            form3.input(form("player1"))(st.placeholder := "Player name"),
+            form3.input(form("player2"))(st.placeholder := "(optional)")
+          )
+        ),
+        tr(
+          th,
+          td(cls := "search__advanced-help"):
+            "One name matches either color. Two names match the pair (any side)."
+        ),
+        tr(
+          th(label("FIDE ID(s)")),
+          td(cls := "two-columns")(
+            form3.input(form("fideId1"))(st.placeholder := "1503014", pattern := "[0-9]+"),
+            form3.input(form("fideId2"))(st.placeholder := "(optional)", pattern := "[0-9]+")
+          )
+        ),
+        tr(
+          th(label("Event")),
+          td(form3.input(form("event"))(st.placeholder := "e.g. Norway Chess 2025"))
+        )
+      ),
+      div(cls := "search__advanced-footer")(
+        a(href := routes.Study.search(), cls := "button button-empty")("Reset"),
+        submitButton(cls := "button button-green")("Search")
+      )
+    )
+
+  private def modeRadio(field: play.api.data.Field, value: String, lbl: String, checked: Boolean): Frag =
+    label(cls := List("search__advanced-mode" -> true, "is-active" -> checked))(
+      input(tpe := "radio", name := field.name, st.value := value, checked.option(st.checked)),
+      span(lbl)
     )
 
   object topic:

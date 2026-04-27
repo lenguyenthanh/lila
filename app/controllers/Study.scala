@@ -30,7 +30,7 @@ final class Study(
 
   private def pgnDump = env.study.pgnDump
 
-  def search(text: String, page: Int, order: Option[StudyOrder]) =
+  def search(page: Int) =
     OpenOrScopedBody(parse.anyContent)(_.Study.Read, _.Web.Mobile):
       Reasonable(page):
         WithProxy: proxy ?=>
@@ -39,25 +39,37 @@ final class Study(
             else if HTTPRequest.isCrawler(req).yes then 80
             else if ctx.isAnon then 100
             else 200
-          text.trim.nonEmptyOption.filter(_.sizeIs > 2).filter(_.sizeIs < maxLen) match
-            case None =>
-              for
-                pag <- env.study.pager.all(Orders.default, page)
-                _ <- preloadMembers(pag)
-                res <- negotiate(
-                  Ok.page(views.study.list.all(pag, Orders.default)),
-                  apiStudies(pag)
-                )
-              yield res
-            case Some(clean) =>
-              limit.enumeration.search(rateLimited):
-                env
-                  .studySearch(clean.take(100), order | StudyOrder.relevant, page)
-                  .flatMap: pag =>
-                    negotiate(
-                      Ok.page(views.study.list.search(pag, order | StudyOrder.relevant, text)),
+          bindForm(env.studySearch.form.search)(
+            failure =>
+              negotiate(
+                BadRequest.page(views.study.list.search(none, failure, Orders.default)),
+                BadRequest(jsonError("Could not process search query"))
+              ),
+            data =>
+              data.q.trim.nonEmptyOption.filter(s => s.sizeIs > 2 && s.sizeIs < maxLen) match
+                case None =>
+                  val order = data.order | Orders.default
+                  for
+                    pag <- env.study.pager.all(order, page)
+                    _ <- preloadMembers(pag)
+                    res <- negotiate(
+                      Ok.page(views.study.list.all(pag, order)),
                       apiStudies(pag)
                     )
+                  yield res
+                case Some(_) =>
+                  limit.enumeration.search(rateLimited):
+                    env
+                      .studySearch(data, page)
+                      .flatMap: pag =>
+                        val order = data.order | StudyOrder.relevant
+                        negotiate(
+                          Ok.page(
+                            views.study.list.search(pag.some, env.studySearch.form.search.fill(data), order)
+                          ),
+                          apiStudies(pag)
+                        )
+          )
 
   def homeLang = LangPage(routes.Study.allDefault())(allResults(StudyOrder.hot, 1))
 

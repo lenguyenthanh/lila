@@ -26,8 +26,9 @@ $top-height: 3.2rem;
     .search {
       flex: 3 1 auto;
       display: flex;
+      flex-wrap: wrap;
 
-      input {
+      > input[name='q'] {
         @extend %box-radius-inline-start;
 
         flex: 1 1 100%;
@@ -39,11 +40,17 @@ $top-height: 3.2rem;
         }
       }
 
-      .button {
+      > .button[type='submit'] {
         @extend %box-radius-inline-end;
 
         padding: 0 1.5em;
         border-inline-start: 0;
+      }
+
+      &__advanced-toggle {
+        height: $top-height;
+        margin-inline-start: 0.6em;
+        padding: 0 1em;
       }
     }
 
@@ -103,5 +110,160 @@ $top-height: 3.2rem;
 
   #infscr-loading {
     width: 100%;
+  }
+
+  .search__advanced {
+    flex-basis: 100%;
+    margin-top: 0.8em;
+    padding: 1.2em 1.4em;
+    background: $c-bg-zebra;
+    border: $border;
+    border-radius: $box-radius-size;
+
+    &.is-collapsed {
+      display: none;
+    }
+
+    .is-hidden {
+      display: none;
+    }
+
+    &-head {
+      @extend %flex-between-nowrap;
+
+      gap: 1em;
+      margin-bottom: 0.8em;
+    }
+
+    &-title h2 {
+      margin: 0 0 0.2em;
+      font-size: 1.05em;
+      color: $c-font-clear;
+    }
+
+    &-refining {
+      font-size: 0.85em;
+      color: $c-font-dim;
+    }
+
+    &-q {
+      font-family: monospace;
+      color: $c-font-clearer;
+    }
+
+    &-edit {
+      color: $c-font-dimmer;
+    }
+
+    &-modes {
+      display: inline-flex;
+      background: $c-bg-page;
+      border: $border;
+      border-radius: $box-radius-size;
+      padding: 2px;
+    }
+
+    &-mode {
+      cursor: pointer;
+      padding: 0.35em 0.9em;
+      font-size: 0.85em;
+      color: $c-font-dim;
+      border-radius: calc(#{$box-radius-size} - 2px);
+      white-space: nowrap;
+      transition: 0.12s;
+
+      input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      &:hover {
+        color: $c-font-clear;
+      }
+
+      &.is-active {
+        background: $c-bg-zebra2;
+        color: $c-font-clearer;
+        font-weight: bold;
+      }
+    }
+
+    &-hint {
+      font-size: 0.85em;
+      font-style: italic;
+      color: $c-font-dim;
+      margin: 0.2em 0 0.6em 9.4em;
+    }
+
+    &-divider {
+      display: flex;
+      align-items: center;
+      gap: 0.8em;
+      margin: 1em 0 0.4em;
+
+      &-line {
+        flex: 1;
+        height: 1px;
+        background: $c-border;
+      }
+
+      &-label {
+        font-size: 0.85em;
+        color: $c-font-dim;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+    }
+
+    &-fields {
+      width: 100%;
+
+      th {
+        width: 9em;
+        text-align: start;
+        padding: 0.4em 0.8em 0.4em 0;
+        font-weight: normal;
+        color: $c-font-dim;
+        vertical-align: middle;
+      }
+
+      td {
+        padding: 0.4em 0;
+      }
+
+      input[type='text'],
+      select {
+        width: 100%;
+        padding: 0.35em 0.6em;
+        height: auto;
+        font-size: 1em;
+      }
+
+      .two-columns {
+        display: flex;
+        gap: 0.6em;
+
+        > * {
+          flex: 1 1 0;
+        }
+      }
+    }
+
+    &-help {
+      font-size: 0.85em;
+      font-style: italic;
+      color: $c-font-dim;
+      padding-top: 0 !important;
+    }
+
+    &-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5em;
+      margin-top: 0.8em;
+      padding-top: 0.8em;
+      border-top: $border;
+    }
   }
 }
