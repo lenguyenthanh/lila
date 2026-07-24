@@ -62,6 +62,10 @@ final class TeamRepo(val coll: Coll)(using Executor):
       )
       .void
 
+
+  def creatorOf(id: TeamId): Fu[Option[UserId]] =
+    coll.secondary.primitiveOne[UserId]($id(id), "createdBy")
+
   private[team] def cursor: PekkoStreamCursor[TeamData] =
     coll.find(enabledSelect).cursor[TeamData]()
 
